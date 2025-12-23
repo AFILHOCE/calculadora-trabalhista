@@ -2,8 +2,7 @@
   "name": "calculadora-trabalhista",
   "private": true,
   "version": "1.0.0",
-  "type": "module",
-  "scripts": {
+    "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
