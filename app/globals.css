@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root{
+  --bg: 255 255 255;
+  --fg: 17 24 39;
+  --muted: 107 114 128;
+  --card: 249 250 251;
+  --border: 229 231 235;
+  --accent: 17 24 39;
+}
+html, body { height: 100%; }
+body{
+  color: rgb(var(--fg));
+  background: rgb(var(--bg));
+}
+.container{
+  @apply mx-auto max-w-5xl px-4;
+}
