@@ -32,7 +32,62 @@ const hoje = (() => {
 })();
 
 export default function Page() {
-  const [form, setForm] = useState({
+    const [form, setForm] = useState({
+    // ... seus campos
+  });
+
+  // ✅ COLE AQUI (2.1)
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  async function baixarPdf() {
+    if (!resultado) return;
+
+    setPdfLoading(true);
+    try {
+      const el = document.getElementById("pdf-report");
+      if (!el) return;
+
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      if (imgHeight <= pageHeight) {
+        pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      } else {
+        let position = 0;
+        let heightLeft = imgHeight;
+
+        while (heightLeft > 0) {
+          pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+          position -= pageHeight;
+          if (heightLeft > 0) pdf.addPage();
+        }
+      }
+
+      const hoje = new Date().toISOString().slice(0, 10);
+      pdf.save(`relatorio-rescisao-${hoje}.pdf`);
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
+  // ... continua o arquivo
+
     salarioMensal: 2500,
     dataAdmissao: "2024-01-01",
     dataDesligamento: hoje,
@@ -306,6 +361,14 @@ export default function Page() {
                 <div className="rounded-2xl border border-gray-200 bg-white p-4">
                   <div className="text-sm text-gray-600">Total estimado no TRCT (sem multa FGTS)</div>
                   <div className="mt-1 text-3xl font-semibold">{money(resultado.valores.totalNoTRCT)}</div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+  <Button type="button" onClick={baixarPdf} disabled={pdfLoading}>
+    {pdfLoading ? "Gerando PDF..." : "Baixar relatório em PDF"}
+  </Button>
+  <div className="text-xs text-gray-500 self-center">
+    Gerado no seu dispositivo (não enviamos seus dados).
+  </div>
+</div>
                   <div className="mt-2 text-xs text-gray-500">
                     A multa do FGTS normalmente é depositada na conta vinculada e não “sai” do mesmo boleto do TRCT.
                   </div>
@@ -370,6 +433,68 @@ export default function Page() {
                     <div>• Seguro-desemprego: <strong>{resultado.resumo.seguroDesemprego}</strong></div>
                   </div>
                 </div>
+                {/* Relatório offscreen para gerar PDF (não use display:none) */}
+<div
+  id="pdf-report"
+  className="fixed left-[-10000px] top-0 w-[794px] bg-white text-gray-900 p-8"
+>
+  <div className="relative overflow-hidden rounded-2xl border border-gray-200 p-6">
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      <div className="rotate-[-20deg] text-6xl font-bold text-gray-200/60">
+        VERSÃO GRÁTIS
+      </div>
+    </div>
+
+    <div className="relative">
+      <div className="text-2xl font-semibold">Relatório de Rescisão (Estimativa)</div>
+      <div className="mt-1 text-sm text-gray-600">
+        Gerado em: {new Date().toLocaleString("pt-BR")}
+      </div>
+
+      <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-xl border border-gray-200 p-3">
+          <div className="text-xs text-gray-500">Salário mensal</div>
+          <div className="font-semibold">{money(Number(form.salarioMensal) || 0)}</div>
+        </div>
+        <div className="rounded-xl border border-gray-200 p-3">
+          <div className="text-xs text-gray-500">Tipo de desligamento</div>
+          <div className="font-semibold">{String(form.tipo)}</div>
+        </div>
+        <div className="rounded-xl border border-gray-200 p-3">
+          <div className="text-xs text-gray-500">Admissão</div>
+          <div className="font-semibold">{form.dataAdmissao}</div>
+        </div>
+        <div className="rounded-xl border border-gray-200 p-3">
+          <div className="text-xs text-gray-500">Desligamento</div>
+          <div className="font-semibold">{form.dataDesligamento}</div>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="text-lg font-semibold">Detalhamento (valores brutos)</div>
+
+        <div className="mt-3 grid gap-2 text-sm">
+          <Row label="Saldo de salário" value={money(resultado.valores.saldoSalario)} />
+          <Row label="Aviso prévio (a receber)" value={money(resultado.valores.avisoPrevio)} />
+          <Row label="13º proporcional" value={money(resultado.valores.decimoTerceiro)} />
+          <Row label="Férias vencidas (+ 1/3)" value={money(resultado.valores.feriasVencidas)} />
+          <Row label="Férias proporcionais (+ 1/3)" value={money(resultado.valores.feriasProporcionais)} />
+
+          <div className="my-2 h-px bg-gray-200" />
+
+          <Row label="Total no TRCT (sem multa FGTS)" value={money(resultado.valores.totalNoTRCT)} />
+          <Row label="Multa do FGTS (referência)" value={money(resultado.valores.multaFgts)} subtle />
+          <Row label="Total geral (TRCT + multa FGTS)" value={money(resultado.valores.totalGeral)} />
+        </div>
+
+        <div className="mt-6 text-xs text-gray-500">
+          Aviso: cálculo estimativo/educacional. Pode variar por convenção coletiva, médias de variáveis,
+          descontos (INSS/IRRF) e regras específicas do vínculo.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
               </div>
             )}
           </CardBody>
